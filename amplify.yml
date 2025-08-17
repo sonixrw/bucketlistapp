@@ -4,14 +4,17 @@ applications:
       phases:
         preBuild:
           commands:
+            - echo "Branch: $AWS_BRANCH  App: $AWS_APP_ID  Region: $AWS_REGION"
             - nvm install 22.18.0
             - nvm use 22.18.0
             - node -v && npm -v
-            - npx -y ampx generate outputs --app-id $AWS_APP_ID --branch $AWS_BRANCH --out-dir .
-            - test -f amplify_outputs.json && echo "outputs ready"
             - npm ci
         build:
           commands:
+            # If Amplify Hosting already provided amplify_outputs.json, skip generation
+            - test -f amplify_outputs.json || npx -y ampx generate outputs --app-id "$AWS_APP_ID" --branch "$AWS_BRANCH" --out-dir .
+            # Fail early if outputs are still missing (e.g., no backend or missing IAM perms)
+            - test -f amplify_outputs.json || (echo "ERROR: amplify_outputs.json not found. Link this branch to a backend OR grant CodeBuild CFN read to generate outputs." && exit 1)
             - npm run build
       artifacts:
         baseDirectory: dist
@@ -21,4 +24,3 @@ applications:
         paths:
           - node_modules/**/*
           - ~/.npm/**/*
-
