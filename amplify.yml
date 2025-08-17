@@ -10,7 +10,7 @@ applications:
             - node -v && npm -v
             - 'echo "Deploying backend for ${AWS_APP_ID}:${AWS_BRANCH} in ${AWS_REGION}"'
             # Create/update the Gen 2 backend in CI
-            - npx -y ampx pipeline-deploy --branch "${AWS_BRANCH}" --app-id "${AWS_APP_ID}" --debug
+            - npx -y ampx pipeline-deploy --branch "${AWS_BRANCH}" --app-id "${AWS_APP_ID}"
     frontend:
       phases:
         preBuild:
