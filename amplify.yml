@@ -1,26 +1,34 @@
 version: 1
-applications:
-  - frontend:
-      phases:
-        preBuild:
-          commands:
-            - echo "Branch: $AWS_BRANCH  App: $AWS_APP_ID  Region: $AWS_REGION"
-            - nvm install 22.18.0
-            - nvm use 22.18.0
-            - node -v && npm -v
-            - npm ci
-        build:
-          commands:
-            # If Amplify Hosting already provided amplify_outputs.json, skip generation
-            - test -f amplify_outputs.json || npx -y ampx generate outputs --app-id "$AWS_APP_ID" --branch "$AWS_BRANCH" --out-dir .
-            # Fail early if outputs are still missing (e.g., no backend or missing IAM perms)
-            - test -f amplify_outputs.json || (echo "ERROR: amplify_outputs.json not found. Link this branch to a backend OR grant CodeBuild CFN read to generate outputs." && exit 1)
-            - npm run build
-      artifacts:
-        baseDirectory: dist
-        files:
-          - '**/*'
-      cache:
-        paths:
-          - node_modules/**/*
-          - ~/.npm/**/*
+backend:
+  phases:
+    build:
+      commands:
+        - echo "Backend: $AWS_APP_ID / $AWS_BRANCH / $AWS_REGION"
+        - nvm install 22.18.0
+        - nvm use 22.18.0
+        - node -v && npm -v
+        # Deploy/Update the Gen 2 backend stack for this branch in CI
+        - npx -y ampx pipeline-deploy --branch "$AWS_BRANCH" --app-id "$AWS_APP_ID" --debug
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - nvm install 22.18.0
+        - nvm use 22.18.0
+        - node -v && npm -v
+        - npm ci
+    build:
+      commands:
+        # If the branch is associated, Hosting auto-provides outputs.
+        # Otherwise, fetch outputs from the backend we just deployed.
+        - test -f amplify_outputs.json || npx -y ampx generate outputs --branch "$AWS_BRANCH" --app-id "$AWS_APP_ID" --out-dir .
+        - test -f amplify_outputs.json || (echo "ERROR: amplify_outputs.json missing. Ensure this branch is linked to the backend or keep the generate step and grant CFN read." && exit 1)
+        - npm run build
+  artifacts:
+    baseDirectory: dist
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*
+      - ~/.npm/**/*
